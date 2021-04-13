@@ -101,11 +101,11 @@ def train(hyp):
 
         assert opt.batch_size % opt.world_size == 0, '--batch-size must be multiple of CUDA device count'
         opt.batch_size = opt.batch_size // opt.world_size
-    else:
-        dist.init_process_group(backend='nccl',  # 'distributed backend'
-                                init_method='tcp://127.0.0.1:9999',  # distributed training init method
-                                world_size=1,  # number of nodes for distributed training
-                                rank=0)  # distributed training node rank
+    # else:
+    #     dist.init_process_group(backend='nccl',  # 'distributed backend'
+    #                             init_method='tcp://127.0.0.1:9999',  # distributed training init method
+    #                             world_size=1,  # number of nodes for distributed training
+    #                             rank=0)  # distributed training node rank
 
     # Initialize model
     steps = math.ceil(len(open(train_path).readlines()) / batch_size) * epochs
@@ -199,12 +199,12 @@ def train(hyp):
     # plt.savefig('LR.png', dpi=300)
 
     # Initialize distributed training
-    if opt.local_rank != -1:
-        model = DDP(model, device_ids=[opt.local_rank], output_device=opt.local_rank, find_unused_parameters=True)
-    else:
-        model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
+    # if opt.local_rank != -1:
+    #     model = DDP(model, device_ids=[opt.local_rank], output_device=opt.local_rank, find_unused_parameters=True)
+    # else:
+    #     model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
 
-    model.yolo_layers = model.module.yolo_layers  # move yolo layer indices to top level
+    # model.yolo_layers = model.module.yolo_layers  # move yolo layer indices to top level
 
     # Dataset
     dataset = LoadImagesAndLabels(train_path, img_size, batch_size,
@@ -246,8 +246,8 @@ def train(hyp):
             print('layer sparse training')
             _, _, prune_idx = parse_module_defs4(model.module_defs)
 
-    train_sampler = torch.utils.data.distributed.DistributedSampler(dataset)  # ddp sampler
-    test_sampler = torch.utils.data.distributed.DistributedSampler(testset)
+    # train_sampler = torch.utils.data.distributed.DistributedSampler(dataset)  # ddp sampler
+    # test_sampler = torch.utils.data.distributed.DistributedSampler(testset)
 
     # Dataloader
     batch_size = min(batch_size, len(dataset))
@@ -258,7 +258,7 @@ def train(hyp):
                                              shuffle=False if (opt.local_rank != -1) else not opt.rect,
                                              pin_memory=True,
                                              collate_fn=dataset.collate_fn,
-                                             sampler=train_sampler if (opt.local_rank != -1) else None
+                                             sampler=None # train_sampler if (opt.local_rank != -1) else None
                                              )
     # Testloader
     testloader = torch.utils.data.DataLoader(LoadImagesAndLabels(test_path, imgsz_test, batch_size,
@@ -529,7 +529,8 @@ def train(hyp):
                 model_temp = model.module.state_dict()
             else:
                 model_temp = model.state_dict()
-        if save and dist.get_rank() == 0:  # DDP save model only once
+        # if save and dist.get_rank() == 0:  # DDP save model only once
+        if save:
             with open(results_file, 'r') as f:  # create checkpoint
                 chkpt = {'epoch': epoch,
                          'best_fitness': best_fitness,
@@ -548,7 +549,7 @@ def train(hyp):
 
     n = opt.name
     if len(n):
-        n = '_' + n if not n.isnumeric() else n
+        # n = '_' + n if not n.isnumeric() else n
         fresults, flast, fbest = 'results%s.txt' % n, wdir + 'last%s.pt' % n, wdir + 'best%s.pt' % n
         for f1, f2 in zip([wdir + 'last.pt', wdir + 'best.pt', 'results.txt'], [flast, fbest, fresults]):
             if os.path.exists(f1):
@@ -610,6 +611,9 @@ if __name__ == '__main__':
     parser.add_argument('--local_rank', type=int, default=-1, help='DDP parameter, do not modify')
 
     opt = parser.parse_args()
+
+    opt.name = '_' + opt.name if not opt.name.isnumeric() and len(opt.name) > 0 else opt.name
+    last = wdir + 'last%s.pt' % opt.name
     opt.weights = last if opt.resume else opt.weights
     opt.cfg = list(glob.iglob('./**/' + opt.cfg, recursive=True))[0]  # find file
     # opt.data = list(glob.iglob(' ./**/' + opt.data, recursive=True))[0]  # find file

@@ -1,0 +1,1 @@
+python train.py --data data/coco2014_person.data --batch-size 16 -pt --weights weights/yolov4-tiny.conv.29 --cfg cfg/yolov4tiny/yolov4-tiny-person.cfg --epochs 50 --name tinyyolov4

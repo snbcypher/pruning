@@ -506,11 +506,14 @@ def train(hyp):
             for x, tag in zip(list(mloss[:-1]) + list(results), tags):
                 tb_writer.add_scalar(tag, x, epoch)
             if opt.prune != -1:
-                if hasattr(model, 'module'):
-                    bn_weights = gather_bn_weights(model.module.module_list, [idx])
-                else:
-                    bn_weights = gather_bn_weights(model.module_list, [idx])
-                tb_writer.add_histogram('bn_weights/hist', bn_weights.numpy(), epoch, bins='doane')
+                try:
+                    if hasattr(model, 'module'):
+                        bn_weights = gather_bn_weights(model.module.module_list, [idx])
+                    else:
+                        bn_weights = gather_bn_weights(model.module_list, [idx])
+                    tb_writer.add_histogram('bn_weights/hist', bn_weights.numpy(), epoch, bins='doane')
+                except:
+                    continue
 
         # Update best mAP
         fi = fitness(np.array(results).reshape(1, -1))  # fitness_i = weighted combination of [P, R, mAP, F1]
@@ -540,7 +543,7 @@ def train(hyp):
 
             # Save last, best and delete
             torch.save(chkpt, last)
-            if (best_fitness == fi) and not final_epoch:
+            if (best_fitness == fi): # removed 'and not final_epoch'
                 torch.save(chkpt, best)
             del chkpt
 
@@ -553,7 +556,7 @@ def train(hyp):
         fresults, flast, fbest = 'results%s.txt' % n, wdir + 'last%s.pt' % n, wdir + 'best%s.pt' % n
         for f1, f2 in zip([wdir + 'last.pt', wdir + 'best.pt', 'results.txt'], [flast, fbest, fresults]):
             if os.path.exists(f1):
-                os.rename(f1, f2)  # rename
+                os.replace(f1, f2)  # rename
                 ispt = f2.endswith('.pt')  # is *.pt
                 strip_optimizer(f2) if ispt else None  # strip optimizer
                 os.system('gsutil cp %s gs://%s/weights' % (f2, opt.bucket)) if opt.bucket and ispt else None  # upload

@@ -513,7 +513,7 @@ def train(hyp):
                         bn_weights = gather_bn_weights(model.module_list, [idx])
                     tb_writer.add_histogram('bn_weights/hist', bn_weights.numpy(), epoch, bins='doane')
                 except:
-                    continue
+                    pass
 
         # Update best mAP
         fi = fitness(np.array(results).reshape(1, -1))  # fitness_i = weighted combination of [P, R, mAP, F1]
